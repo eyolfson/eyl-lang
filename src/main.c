@@ -15,6 +15,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 *******************************************************************************/
 
 /* C */
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -24,6 +25,11 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+typedef struct { char *ptr; size_t size; } token_t;
+
+char opcode[][3] = { {'m', 'o', 'v'},
+                     {'s', 'v', 'c'} };
 
 int main(int argc, char **argv)
 {
@@ -56,7 +62,22 @@ int main(int argc, char **argv)
         goto close_fd;
     }
 
-    // TODO
+    char *current = input;
+    char *input_end = input + input_size;
+    char *ins_start = NULL;
+    while (current != input_end) {
+        bool is_alpha = *current >= 'a' && *current <= 'z';
+        if (is_alpha && ins_start == NULL) {
+            ins_start = current;
+        }
+        else if (!is_alpha) {
+            if ((current - ins_start) == 3) {
+                printf("possible instruction\n");
+            }
+            ins_start = NULL;
+        }
+        ++current;
+    }
 
  unmap_input:
     munmap(input, input_size);

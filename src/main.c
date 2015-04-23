@@ -96,6 +96,7 @@ int main(int argc, char **argv)
         goto unmap_input;
     }
     uint8_t *machine_code_current = machine_code;
+    /* TODO - make machine_code realloc if it runs out of capacity */
 
     char *start = NULL;
     global_state_t state = STA_MNEMONIC;
@@ -124,9 +125,23 @@ int main(int argc, char **argv)
                     if (size == strlen(name)
                         && (strncmp(name, start, size) == 0)) {
 
-                        if (MNEMONIC_INFO[i].id == MNE_MOV) {
+
+                        switch (MNEMONIC_INFO[i].id) {
+                        case MNE_MOV:
                             state = STA_REGISTER;
+                            *machine_code_current = 0x48;
+                            ++machine_code_current;
+                            *machine_code_current = 0xc7;
+                            ++machine_code_current;
+                            break;
+                        case MNE_SYSCALL:
+                            *machine_code_current = 0x0f;
+                            ++machine_code_current;
+                            *machine_code_current = 0x05;
+                            ++machine_code_current;
+                            break;
                         }
+
                         printf("%s mnemonic\n", name);
                         break;
                     }
@@ -139,14 +154,35 @@ int main(int argc, char **argv)
                     if (size == strlen(name)
                         && (strncmp(name, start, size) == 0)) {
 
-                        if (REGISTER_INFO[i].id == MNE_MOV) {
-                            state = STA_REGISTER;
+                        switch (REGISTER_INFO[i].id) {
+                        case REG_RAX:
+                            *machine_code_current = 0xc0;
+                            ++machine_code_current;
+                            break;
+                        case REG_RDI:
+                            *machine_code_current = 0xc7;
+                            ++machine_code_current;
+                            break;
                         }
-                        state = STA_MNEMONIC;
+                        state = STA_NUMBER;
                         printf("%s register\n", name);
                         break;
                     }
                 }
+                break;
+            case STA_NUMBER:
+                {
+                    uint32_t number = 0;
+                    for (size_t i = 0; i < size; ++i) {
+                        number *= 10;
+                        number += *(start + i) - '0';
+                    }
+
+                    *((uint32_t*) machine_code_current) = number;
+                    machine_code_current += 4;
+                    printf("%d number\n", number);
+                }
+                state = STA_MNEMONIC;
                 break;
             }
 
@@ -159,6 +195,14 @@ int main(int argc, char **argv)
     if (start != NULL) {
         // TODO
     }
+
+    size_t machine_code_size = machine_code_current - machine_code;
+    printf("\ngenerated %ld bytes\n", machine_code_size);
+    for (size_t i = 0; i < machine_code_size; ++i) {
+        printf(" %02x", machine_code[i]);
+    }
+    printf("\n");
+    
 
     free(machine_code);
  unmap_input:

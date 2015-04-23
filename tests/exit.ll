@@ -1,3 +1,3 @@
-mov rax, 0x3c
-mov rdi, 0x2a
+mov rax, 60
+mov rdi, 0
 syscall

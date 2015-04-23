@@ -28,7 +28,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 #include <sys/stat.h>
 #include <unistd.h>
 
-typedef enum { STA_MNEMONIC } global_state_t;
+typedef enum { STA_MNEMONIC, STA_REGISTER, STA_NUMBER } global_state_t;
 
 typedef enum { MNE_MOV, MNE_SYSCALL } mnemonic_id_t;
 typedef struct {
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
         input_size = stat.st_size;
     }
 
-    char *input = mmap(NULL, input_size, PROT_READ, MAP_SHARED, fd, 0);
+    char *input = mmap(NULL, input_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (input == MAP_FAILED) {
         perror("mmap input file");
         ret = EXIT_FAILURE;
@@ -88,34 +88,79 @@ int main(int argc, char **argv)
     char *current = input;
     char *input_end = input + input_size;
 
+    size_t machine_code_capacity = 4096;
+    uint8_t *machine_code = malloc(machine_code_capacity);
+    if (machine_code == NULL) {
+        perror("malloc machine code");
+        ret = EXIT_FAILURE;
+        goto unmap_input;
+    }
+    uint8_t *machine_code_current = machine_code;
+
     char *start = NULL;
     global_state_t state = STA_MNEMONIC;
+    bool is_valid = false;
     while (current != input_end) {
-        bool is_alpha = *current >= 'a' && *current <= 'z';
         switch (state) {
         case STA_MNEMONIC:
-            if (is_alpha && start == NULL) {
-                start = current;
-            }
-            else if (!is_alpha && start != NULL) {
-                size_t size = current - start;
+        case STA_REGISTER:
+            is_valid = *current >= 'a' && *current <= 'z';
+            break;
+        case STA_NUMBER:
+            is_valid = *current >= '0' && *current <= '9';
+        }
+
+        if (is_valid && start == NULL) {
+            start = current;
+        }
+
+        else if (!is_valid && start != NULL) {
+            size_t size = current - start;
+
+            switch (state) {
+            case STA_MNEMONIC:
                 for (size_t i = 0; i < MNEMONIC_INFO_SIZE; ++i) {
                     char *name = MNEMONIC_INFO[i].name;
                     if (size == strlen(name)
                         && (strncmp(name, start, size) == 0)) {
+
+                        if (MNEMONIC_INFO[i].id == MNE_MOV) {
+                            state = STA_REGISTER;
+                        }
                         printf("%s mnemonic\n", name);
                         break;
                     }
                 }
-                start = NULL;
+                break;
+            case STA_REGISTER:
+
+                for (size_t i = 0; i < REGISTER_INFO_SIZE; ++i) {
+                    char *name = REGISTER_INFO[i].name;
+                    if (size == strlen(name)
+                        && (strncmp(name, start, size) == 0)) {
+
+                        if (REGISTER_INFO[i].id == MNE_MOV) {
+                            state = STA_REGISTER;
+                        }
+                        state = STA_MNEMONIC;
+                        printf("%s register\n", name);
+                        break;
+                    }
+                }
+                break;
             }
-            break;
+
+            start = NULL;
         }
         ++current;
     }
     /* need to check here as well */
     /* in case the file doesn't end with whitespace (newline) */
+    if (start != NULL) {
+        // TODO
+    }
 
+    free(machine_code);
  unmap_input:
     munmap(input, input_size);
  close_fd:

@@ -215,7 +215,7 @@ int main(int argc, char **argv)
     munmap(input, input_size);
  close_fd:
     close(fd);
-    
+
     mode_t mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
     fd = open(argv[3], O_WRONLY | O_CREAT, mode);
     if (fd == -1) {
@@ -242,7 +242,7 @@ int main(int argc, char **argv)
     header.e_shoff = 0; /* Section header table file offset */
 
     header.e_flags = 0; /* Processor-specific flags */
-    header.e_ehsize = 64; /* ELF header size in bytes */ 
+    header.e_ehsize = 64; /* ELF header size in bytes */
     header.e_phentsize = 56; /* Program header table entry size */
     header.e_phnum = 1; /* Program header table entry count */
     header.e_shentsize = 64; /* Section header table entry size */

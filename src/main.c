@@ -216,6 +216,10 @@ int main(int argc, char **argv)
  close_fd:
     close(fd);
 
+    if (ret == EXIT_FAILURE) {
+        goto ret;
+    }
+
     mode_t mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
     fd = open(argv[3], O_WRONLY | O_CREAT, mode);
     if (fd == -1) {

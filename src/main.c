@@ -208,7 +208,6 @@ int main(int argc, char **argv)
         printf(" %02x", machine_code[i]);
     }
     printf("\n");
-    
 
     free(machine_code);
  unmap_input:

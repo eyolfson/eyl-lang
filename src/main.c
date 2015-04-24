@@ -28,6 +28,9 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* ELF */
+#include <elf.h>
+
 typedef enum { STA_MNEMONIC, STA_REGISTER, STA_NUMBER } global_state_t;
 
 typedef enum { MNE_MOV, MNE_SYSCALL } mnemonic_id_t;
@@ -56,10 +59,13 @@ static const register_info_t REGISTER_INFO[] = {
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
+    if (argc != 4) {
         return EXIT_FAILURE;
     }
     int ret = EXIT_SUCCESS;
+    if (strcmp("-o", argv[2]) != 0) {
+        return EXIT_FAILURE;
+    }
     int fd = open(argv[1], O_RDONLY);
     if (fd == -1) {
         perror("opening input file");
@@ -208,6 +214,55 @@ int main(int argc, char **argv)
  unmap_input:
     munmap(input, input_size);
  close_fd:
+    close(fd);
+    
+    mode_t mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
+    fd = open(argv[3], O_WRONLY | O_CREAT, mode);
+    if (fd == -1) {
+        perror("opening output file");
+        ret = EXIT_FAILURE;
+        goto ret;
+    }
+
+    Elf64_Ehdr header;
+    header.e_ident[EI_MAG0] = ELFMAG0;
+    header.e_ident[EI_MAG1] = ELFMAG1;
+    header.e_ident[EI_MAG2] = ELFMAG2;
+    header.e_ident[EI_MAG3] = ELFMAG3;
+    header.e_ident[EI_CLASS] = ELFCLASS64;
+    header.e_ident[EI_DATA] = ELFDATA2LSB;
+    header.e_ident[EI_VERSION] = EV_CURRENT;
+
+    header.e_type = ET_EXEC;
+    header.e_machine = EM_X86_64;
+    header.e_version = EV_CURRENT;
+    header.e_entry = 0x400000 + 120; /* Entry point virtual address */
+
+    header.e_phoff = 64; /* Program header table file offset */
+    header.e_shoff = 0; /* Section header table file offset */
+
+    header.e_flags = 0; /* Processor-specific flags */
+    header.e_ehsize = 64; /* ELF header size in bytes */ 
+    header.e_phentsize = 56; /* Program header table entry size */
+    header.e_phnum = 1; /* Program header table entry count */
+    header.e_shentsize = 64; /* Section header table entry size */
+    header.e_shnum = 0; /* Section header table entry count */
+    header.e_shstrndx = 0; /* Section header string table index */
+
+    Elf64_Phdr program_header;
+    program_header.p_type = PT_LOAD; /* Segment type */
+    program_header.p_flags = PF_R | PF_X; /* Segment flags */
+    program_header.p_offset = 0; /* Segment file offset */
+    program_header.p_vaddr = 0x400000; /* Segment virtual address */
+    program_header.p_paddr = 0x400000; /* Segment physical address */
+    program_header.p_filesz = 120 + machine_code_size; /* Segment size in file */
+    program_header.p_memsz = 120 + machine_code_size; /* Segment size in memory */
+    program_header.p_align = 4096; /* Segment alignment */
+
+    write(fd, &header, sizeof(header));
+    write(fd, &program_header, sizeof(program_header));
+    write(fd, machine_code, machine_code_size);
+
     close(fd);
  ret:
     return ret;

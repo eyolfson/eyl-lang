@@ -1,0 +1,2 @@
+linux::write(1, "Hello world");
+linux::exit_group(42);

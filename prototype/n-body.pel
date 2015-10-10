@@ -1,0 +1,120 @@
+/* ./nbody.gcc_run 50000000 */
+
+Constant [Real, 8 B] pi = 3.141592653589793;
+Constant [Real, 8 B] solar_mass = 4 * pi * pi;
+Constant [Real, 8 B] days_per_day = 365.24;
+
+Structure planet {
+          [Point, 3x[Real, 8 B]] p(x, y, z); /* 3D Point */
+          [Vector, 3x[Real, 8 B]] v(x, y, z); /* 3D velocities */
+          [Real, 8 B] m;
+}
+
+
+Function distance(Point a, Point b) -> [Real, 8 B]
+{
+  sqrt( (x_1 - x_0)^2 + (y_1 - y0)^2 + (z_1 - z_0)^2 )
+
+}
+
+??? advance(bodies, time_delta) -> bodies'
+{
+  for all pairs (p_0, p1) in bodies
+  {
+    let d = distance(p_0, p_1);
+    let mag = (dt / d^3);
+    let deltas = (delta(p_0.x, p_1.x), // reuse these 3 from distance
+                  delta(p_0.y, p_1.y),
+                  delta(p_0.z, p_1.z));
+    p_0.v' = compute_velocity(p_0, p_1, deltas, mag);
+    p_1.v ' = compute_velocity(p_1, p_0, deltas, mag);
+  }
+  for each p in bodies
+  {
+    p.p' = compute_position(p)
+  }
+}
+
+Function energy(bodies) -> [Real, 8 B]
+{
+  let [Real, 8 B] e = 0;
+  int i, j;
+
+  for all pairs(p_0, p_1) in bodoes
+  [
+    e += 0.5 * p_0.m * (p.v.x^2 + p.v.y^2 + p.v.z^2);
+    let d = distance(p_0, p_1);
+    e -= (p_0.m * p_1.m) / d;
+  }
+  return e;
+}
+
+offset_momentum(bodies)
+{
+  let [Point] tmp = (0, 0, 0);
+  for each p in bodies {
+    tmp.x += p.v.x * p.m;
+    tmp.y += p.v.y * p.m;
+    tmp.z += p.v.z * p.m;
+  }
+  bodies[0].v.x = (-tmp.x) / solar_mass;
+  bodies[0].v.y = (-tmp.y) / solar_mass;
+  bodies[0].v.z = (-tmp.z) / solar_mass;
+}
+
+[Sequence, Planet] bodies = {
+  {                               /* sun */
+    0, 0, 0, 0, 0, 0, solar_mass
+  },
+  {                               /* jupiter */
+    4.84143144246472090e+00,
+    -1.16032004402742839e+00,
+    -1.03622044471123109e-01,
+    1.66007664274403694e-03 * days_per_year,
+    7.69901118419740425e-03 * days_per_year,
+    -6.90460016972063023e-05 * days_per_year,
+    9.54791938424326609e-04 * solar_mass
+  },
+  {                               /* saturn */
+    8.34336671824457987e+00,
+    4.12479856412430479e+00,
+    -4.03523417114321381e-01,
+    -2.76742510726862411e-03 * days_per_year,
+    4.99852801234917238e-03 * days_per_year,
+    2.30417297573763929e-05 * days_per_year,
+    2.85885980666130812e-04 * solar_mass
+  },
+  {                               /* uranus */
+    1.28943695621391310e+01,
+    -1.51111514016986312e+01,
+    -2.23307578892655734e-01,
+    2.96460137564761618e-03 * days_per_year,
+    2.37847173959480950e-03 * days_per_year,
+    -2.96589568540237556e-05 * days_per_year,
+    4.36624404335156298e-05 * solar_mass
+  },
+  {                               /* neptune */
+    1.53796971148509165e+01,
+    -2.59193146099879641e+01,
+    1.79258772950371181e-01,
+    2.68067772490389322e-03 * days_per_year,
+    1.62824170038242295e-03 * days_per_year,
+    -9.51592254519715870e-05 * days_per_year,
+    5.15138902046611451e-05 * solar_mass
+  }
+};
+
+int main(int argc, char ** argv)
+{
+  let n [Integer, 4 B] = from_first_argument()
+  {
+    failure: linux::exit(1);
+  }
+  offset_momentum(bodies);
+  printf ("%.9f\n", energy(bodies)); // TODO
+  loop n {
+    advance(bodies, 0.01);
+  }
+  printf ("%.9f\n", energy(bodies)); // TODO
+  linux::exit(0);
+}

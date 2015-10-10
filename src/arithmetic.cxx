@@ -1,7 +1,5 @@
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
-#include <vector>
 
 enum class token {
     UNKNOWN,
@@ -92,11 +90,4 @@ bool lex(const char* input) {
     }
 
     return true;
-}
-
-int main(int argc, char** argv)
-{
-    if (argc < 2) return 1;
-    if (!lex(argv[1])) return 1;
-    return 0;
 }

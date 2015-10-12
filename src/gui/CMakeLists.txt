@@ -11,7 +11,7 @@ include_directories(
 )
 
 
-add_executable (eyl-lang-gui main.cxx xdg_shell.c)
+add_executable (eyl-lang-gui main.cxx xdg_shell.cxx)
 set_property (TARGET eyl-lang-gui PROPERTY CXX_STANDARD 14)
 target_link_libraries(eyl-lang-gui
     ${WAYLAND_CLIENT_LIBRARIES}

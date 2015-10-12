@@ -73,7 +73,7 @@ static const struct wl_message xdg_shell_events[] = {
 	{ "ping", "u", types + 0 },
 };
 
-WL_EXPORT const struct wl_interface xdg_shell_interface = {
+extern const struct wl_interface xdg_shell_interface = {
 	"xdg_shell", 1,
 	5, xdg_shell_requests,
 	1, xdg_shell_events,
@@ -101,7 +101,7 @@ static const struct wl_message xdg_surface_events[] = {
 	{ "close", "", types + 0 },
 };
 
-WL_EXPORT const struct wl_interface xdg_surface_interface = {
+extern const struct wl_interface xdg_surface_interface = {
 	"xdg_surface", 1,
 	14, xdg_surface_requests,
 	2, xdg_surface_events,
@@ -115,7 +115,7 @@ static const struct wl_message xdg_popup_events[] = {
 	{ "popup_done", "", types + 0 },
 };
 
-WL_EXPORT const struct wl_interface xdg_popup_interface = {
+extern const struct wl_interface xdg_popup_interface = {
 	"xdg_popup", 1,
 	1, xdg_popup_requests,
 	1, xdg_popup_events,

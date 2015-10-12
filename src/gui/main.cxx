@@ -17,6 +17,11 @@
 
 #include <cstring>
 
+#include <linux/memfd.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
 #include <cairo/cairo.h>
 
 #include <wayland-client.h>
@@ -29,6 +34,8 @@ namespace wayland
 class display
 {
 	struct wl_display *ptr;
+
+	friend class registry;
 
 public:
 	display() { ptr = wl_display_connect(nullptr); }
@@ -49,6 +56,27 @@ public:
 	{
 		if (ptr != nullptr) {
 			wl_display_roundtrip(ptr);
+		}
+	}
+};
+
+class compositor
+{
+	struct wl_compositor *ptr;
+
+	compositor() : ptr(nullptr) {}
+
+	void initialize(void *p)
+	{
+		ptr = static_cast<struct wl_compositor *>(p);
+	}
+
+	bool has_errors() { return ptr == nullptr; }
+
+	~compositor()
+	{
+		if (ptr != nullptr) {
+			wl_compositor_destroy(ptr);
 		}
 	}
 
@@ -74,6 +102,8 @@ class shell
 		ptr = static_cast<struct xdg_shell *>(p);
 		if (ptr != nullptr) {
 			xdg_shell_add_listener(ptr, &listener, nullptr);
+			xdg_shell_use_unstable_version(
+			    ptr, XDG_SHELL_VERSION_CURRENT);
 		}
 	}
 
@@ -86,14 +116,35 @@ class shell
 		}
 	}
 
-public:
+	friend class registry;
+};
+
+class shm
+{
+	struct wl_shm *ptr;
+
+	shm() : ptr(nullptr) {}
+
+	void initialize(void *p) { ptr = static_cast<struct wl_shm *>(p); }
+
+	bool has_errors() { return ptr == nullptr; }
+
+	~shm()
+	{
+		if (ptr != nullptr) {
+			wl_shm_destroy(ptr);
+		}
+	}
+
 	friend class registry;
 };
 
 class registry
 {
 	struct wl_registry *ptr;
+	wayland::compositor compositor;
 	wayland::shell shell;
+	wayland::shm shm;
 
 	static struct wl_registry_listener listener;
 
@@ -102,7 +153,14 @@ class registry
 			   uint32_t version)
 	{
 		registry *r = static_cast<registry *>(data);
-		if (strcmp(interface, xdg_shell_interface.name) == 0) {
+		if (strcmp(interface, wl_compositor_interface.name) == 0) {
+			r->compositor.initialize(wl_registry_bind(
+			    wl_registry, name, &wl_compositor_interface,
+			    version));
+		} else if (strcmp(interface, wl_shm_interface.name) == 0) {
+			r->shm.initialize(wl_registry_bind(
+			    wl_registry, name, &wl_shm_interface, version));
+		} else if (strcmp(interface, xdg_shell_interface.name) == 0) {
 			r->shell.initialize(wl_registry_bind(
 			    wl_registry, name, &xdg_shell_interface, version));
 		}
@@ -121,7 +179,14 @@ public:
 		}
 		d.dispatch();
 	}
-	bool has_errors() { return ptr == nullptr || shell.has_errors(); }
+	bool has_errors()
+	{
+		return ptr == nullptr || compositor.has_errors() ||
+		       shell.has_errors() || shm.has_errors();
+	}
+	wayland::compositor &compositor_ref() { return compositor; }
+	wayland::shell &shell_ref() { return shell; }
+	wayland::shm &shm_ref() { return shm; }
 	~registry()
 	{
 		if (ptr != nullptr) {
@@ -136,6 +201,39 @@ struct xdg_shell_listener wayland::shell::listener = {ping};
 struct wl_registry_listener wayland::registry::listener = {global,
 							   global_remove};
 
+class pixels
+{
+	uint32_t *data;
+	const int32_t width;
+	const int32_t height;
+
+public:
+	pixels(int32_t w, int32_t h) : data(nullptr), width(w), height(h)
+	{
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		int fd = syscall(SYS_memfd_create, "pixels",
+				 MFD_CLOEXEC | MFD_ALLOW_SEALING);
+		if (fd == -1) {
+			return;
+		}
+		ftruncate(fd, capacity() * 2);
+		data = static_cast<uint32_t *>(mmap(nullptr, capacity(),
+						    PROT_WRITE | PROT_READ,
+						    MAP_SHARED, fd, 0));
+		if (data == MAP_FAILED) {
+			data = nullptr;
+		}
+		close(fd);
+	}
+	int32_t capacity() const
+	{
+		return width * height * sizeof(uint32_t) * 2;
+	}
+	int32_t stride() const { return width * sizeof(uint32_t); }
+	~pixels() { munmap(data, capacity()); }
+};
 int main(int argc, char **argv)
 {
 	wayland::display display;
@@ -146,5 +244,8 @@ int main(int argc, char **argv)
 	if (registry.has_errors()) {
 		return 2;
 	}
-	return 0;
+	wayland::compositor &compositor = registry.compositor_ref();
+	wayland::shm &shm = registry.shm_ref();
+	wayland::shell &shell = registry.shell_ref();
+	pixels ps(300, 200);
 }

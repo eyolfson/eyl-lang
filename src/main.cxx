@@ -20,6 +20,7 @@
 
 #include <array>
 #include <vector>
+#include <tuple>
 
 enum class byte_order {
 	none,
@@ -27,36 +28,24 @@ enum class byte_order {
 	big_endian,
 };
 
-class primitive
+class fundamental
 {
-public:
-	uint16_t number_of_bytes;
-	byte_order order_of_bytes;
-
-	primitive(uint16_t n, byte_order o)
-		: number_of_bytes(n), order_of_bytes(o)
-	{
-	}
-};
-
-class bytes
-{
-	std::vector<uint8_t> data;
+	std::vector<uint8_t> bytes;
 	byte_order order;
 
 public:
-	bytes(const primitive &p)
-		: data(p.number_of_bytes, 0), order(p.order_of_bytes)
+	fundamental(std::tuple<size_t, byte_order> &t)
+		: bytes(std::get<0>(t), 0), order(std::get<1>(t))
 	{
-		for (int i = 0; i < data.size(); ++i) {
-			data[i] = i;
+		for (int i = 0; i < bytes.size(); ++i) {
+			bytes[i] = i;
 		}
 	}
 	void print_bytes()
 	{
-		printf("%02x", data[data.size() - 1]);
-		for (int i = data.size() - 2; i >= 0; --i) {
-			printf(" %02x", data[i]);
+		printf("%02x", bytes[bytes.size() - 1]);
+		for (int i = bytes.size() - 2; i >= 0; --i) {
+			printf(" %02x", bytes[i]);
 		}
 		printf("\n");
 	}
@@ -65,9 +54,9 @@ public:
 		if (order == byte_order::big_endian) {
 			print_bytes();
 		} else {
-			printf("%02x", data[0]);
-			for (int i = 1; i < data.size(); ++i) {
-				printf(" %02x", data[i]);
+			printf("%02x", bytes[0]);
+			for (int i = 1; i < bytes.size(); ++i) {
+				printf(" %02x", bytes[i]);
 			}
 			printf("\n");
 		}
@@ -84,14 +73,14 @@ int main(int argc, const char *argv[])
 {
 	printf("Language 0.0.1-development\n");
 
-	std::array<primitive, 4> primitives = {{
-	    {1, byte_order::none},
-	    {2, byte_order::little_endian},
-	    {4, byte_order::little_endian},
-	    {8, byte_order::little_endian},
-	}};
+	std::array<std::tuple<size_t, byte_order>, 4> fundamentals_supported = {
+            std::make_tuple(1, byte_order::none),
+	    std::make_tuple(2, byte_order::little_endian),
+	    std::make_tuple(4, byte_order::little_endian),
+	    std::make_tuple(8, byte_order::little_endian),
+        };
 
-	bytes x(primitives[2]);
+	fundamental x(fundamentals_supported[2]);
 	printf("\n");
 	x.print_bytes();
 	printf("\n");
